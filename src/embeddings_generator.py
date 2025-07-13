@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Generator:
-    def __init__(self, chunks, embedding_model='text-embedding-3-small'):
+    def __init__(self, chunks=None, embedding_model='text-embedding-3-small'):
       self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
       self.chunks = chunks
       self.embedding_model = embedding_model

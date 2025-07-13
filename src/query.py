@@ -33,32 +33,33 @@ class QueryMachine:
 
       question: {question}
       """
+    
+    def get_answer(self, question, context):
+      try:
+        final_prompt = self.prompt_template.format(context=retrieved_context, question=query)
+        response = self.openai_client.responses.create(
+            model=self.MODEL,
+            temperature=0.7,
+            input=final_prompt,
+          )
 
-    def send_query(self):
+          return response.output_text
+
+    def enter_query(self):
       try:
         while True:
           query = input('Please enter a question about the Art of War:\n')
 
           query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
-          final_prompt = self.prompt_template.format(context=retrieved_context, question=query)
 
-          print('final prompt: ', final_prompt)
-
-          response = self.openai_client.responses.create(
-            model=self.MODEL,
-            temperature=0.7,
-            input=final_prompt,
-            stream=True
-          )
-
-          return response.output_text
+          self.get_answer(query, retrieved_context)
 
       except Exception as e:
-        print(f"error while prompting {MODEL}: {e}")
+        print(f"error while prompting {self.MODEL}: {e}")
 
 query_machine = QueryMachine()
 print(query_machine.send_query())
 
 # low frequency words
-# NER
+# NER : /city of.../, /River/, /Pass/, / Dynasty/ / Battle .. until one or more capitalized words/
