@@ -1,15 +1,17 @@
 import os
 from retriever import Retriever
+from embeddings_generator import Generator
 from dotenv import load_dotenv
 from openai import OpenAI
 
 load_dotenv()
 
 class QueryMachine:
-    def __init__(self):
+    def __init__(self, model='gpt-4.1'):
       self.db_search = Retriever()
+      self.embeddings_generator = Generator()
       self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-      self.MODEL = "gpt-4o"
+      self.MODEL = model
       self.prompt_template = """
       You are an expert on Sun-Tzu's The Art of War.
 
@@ -36,13 +38,9 @@ class QueryMachine:
       try:
         while True:
           query = input('Please enter a question about the Art of War:\n')
-          query_embedding = self.openai_client.embeddings.create(
-            model="text-embedding-3-small",
-            input=query
-          ).data[0].embedding
 
+          query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
-
           final_prompt = self.prompt_template.format(context=retrieved_context, question=query)
 
           print('final prompt: ', final_prompt)
@@ -50,7 +48,8 @@ class QueryMachine:
           response = self.openai_client.responses.create(
             model=self.MODEL,
             temperature=0.7,
-            input=final_prompt
+            input=final_prompt,
+            stream=True
           )
 
           return response.output_text
@@ -60,3 +59,6 @@ class QueryMachine:
 
 query_machine = QueryMachine()
 print(query_machine.send_query())
+
+# low frequency words
+# NER

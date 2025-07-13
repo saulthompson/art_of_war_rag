@@ -37,7 +37,7 @@ class DB_setup_helper:
             self.cur = self.conn.cursor()
             batch = []
 
-            for chunk, embedding in generator.generate_embeddings():
+            for chunk, embedding in generator.generate_chunk_embeddings():
                 batch.append((chunk['content'], chunk['chapter'], embedding))       
                 if len(batch) > batch_size:
                     self.cur.executemany(self.insert_chunk_query, batch)             
