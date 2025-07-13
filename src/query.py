@@ -1,0 +1,62 @@
+import os
+from retriever import Retriever
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv()
+
+class QueryMachine:
+    def __init__(self):
+      self.db_search = Retriever()
+      self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+      self.MODEL = "gpt-4o"
+      self.prompt_template = """
+      You are an expert on Sun-Tzu's The Art of War.
+
+      You will helpfully answer users' questions about the Art of War,
+      with close reference to relevant context from a book-length modern commentary on the Art of War by Hua Shan.
+      Make sure to explicitly reference at least 2 passages from the context provided to illustrate
+      your points. In each reference, you should quote from the 'chunk' field, and include the chapter title, and clearly
+      distinguish between Hua Shan's own words and Sun Tzu's original text whenever you cite a quote. You should loosely follow this format:
+      "<point>, as pointed out by Hua Shan in the chapter entitled <chapter title> - <quotation from the chunk text>"
+
+      Make sure to always include at least one direct quote from Sun-Tzu.
+      Bear in mind the users are not very familiar with Chinese history, culture, and geogrpahy. Add brief explanations
+      of people, places, and events. e.g. 'the Fei river - a river that no longer exists, but which is believed to 
+      have flowed through modern Anhui province, at the southern limit of the Central China Plain.'
+
+      Do not limit the length of your output - answer as fully as possible
+
+      extracts from the book: {context}
+
+      question: {question}
+      """
+
+    def send_query(self):
+      try:
+        while True:
+          query = input('Please enter a question about the Art of War:\n')
+          query_embedding = self.openai_client.embeddings.create(
+            model="text-embedding-3-small",
+            input=query
+          ).data[0].embedding
+
+          retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
+
+          final_prompt = self.prompt_template.format(context=retrieved_context, question=query)
+
+          print('final prompt: ', final_prompt)
+
+          response = self.openai_client.responses.create(
+            model=self.MODEL,
+            temperature=0.7,
+            input=final_prompt
+          )
+
+          return response.output_text
+
+      except Exception as e:
+        print(f"error while prompting {MODEL}: {e}")
+
+query_machine = QueryMachine()
+print(query_machine.send_query())
