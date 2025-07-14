@@ -1,6 +1,6 @@
 import os
-from retriever import Retriever
-from embeddings_generator import Generator
+from src.retriever import Retriever
+from src.embeddings_generator import Generator
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -36,14 +36,17 @@ class QueryMachine:
     
     def get_answer(self, question, context):
       try:
-        final_prompt = self.prompt_template.format(context=retrieved_context, question=query)
+        final_prompt = self.prompt_template.format(context=context, question=question)
         response = self.openai_client.responses.create(
             model=self.MODEL,
             temperature=0.7,
             input=final_prompt,
           )
 
-          return response.output_text
+        return response.output_text
+      
+      except Exception as e:
+        print('Error while getting answer:', e)
 
     def enter_query(self):
       try:
@@ -53,13 +56,16 @@ class QueryMachine:
           query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
 
-          self.get_answer(query, retrieved_context)
+          print('retrieved context:', retrieved_context)
+
+          return self.get_answer(query, retrieved_context)
 
       except Exception as e:
         print(f"error while prompting {self.MODEL}: {e}")
 
-query_machine = QueryMachine()
-print(query_machine.send_query())
+# query_machine = QueryMachine()
+# print(query_machine.enter_query())
 
+# todo - clean up database connections in retriever.py / centralize all db logic
 # low frequency words
 # NER : /city of.../, /River/, /Pass/, / Dynasty/ / Battle .. until one or more capitalized words/

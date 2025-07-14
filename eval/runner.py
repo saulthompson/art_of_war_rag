@@ -1,72 +1,106 @@
 import os
 import json
+import yaml
+import subprocess
 from datetime import datetime
 from dotenv import load_dotenv
-from langsmith import Client
-from retriever import Retriever
-from generator import QueryMachine
-from evaluators import semantic_similarity, exact_match
+from langsmith import Client, wrappers, traceable
+from langchain_postgres import PGVector
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from src.retriever import Retriever
+from src.query import QueryMachine
+from src.embeddings_generator import Generator
+from openai import OpenAI
+from eval.evaluators import correctness, groundedness, relevance, retrieval_relevance
+
 
 load_dotenv()
 
-client = Client(api_key=os.getenv("LANGCHAIN_API_KEY"))
+generator = Generator()
+query_machine = QueryMachine()
 
-retriever = Retriever()
-generator = QueryMachine()
+langsmith_client = Client(api_key=os.getenv("LANGCHAIN_API_KEY"))
+openai_client = wrappers.wrap_openai(OpenAI())
 
-def run_eval():
-    with open('eval/data/queries.jsonl') as f:
-        queries = [json.loads(line) for line in f]
+DATASET_NAME = "art_of_war"
 
-    results = []
+existing = list(langsmith_client.list_datasets(dataset_name=DATASET_NAME))
+print('existing:', dir(existing))
 
-    for q in queries:
-        question = q['question']
-        gold = q.get('gold_answer')
+if existing:
+    dataset = existing[0]
+    print(f" Using existing dataset: {dataset.name}")
+else:
+    dataset = langsmith_client.create_dataset(
+        dataset_name=DATASET_NAME
+    )
+    print(f" Created new dataset: {dataset.id}")
 
-        run = client.create_run(
-            name="rag_eval",
-            inputs={"question": question},
-            run_type="chain"
-        )
 
-        try:
-            retrieved_chunks = retriever.find_similar(question, limit=6)
-            run.log_output({"retrieved_chunks": retrieved_chunks})
+with open('eval/data/queries.jsonl') as f:
+    queries_and_reference_answers = [json.loads(line) for line in f]
+    langsmith_client.create_examples(dataset_id=dataset.id, examples=queries_and_reference_answers)
 
-            answer = query_machine.get_answer(question, retrieved_chunks)
-            run.log_output({"answer": answer})
+conn_str = (
+    f"postgresql+psycopg://{os.environ['PGVECTOR_USER']}:{os.environ['DB_PASSWORD']}"
+    f"@{os.environ['PGVECTOR_HOST']}:{os.environ['PGVECTOR_PORT']}/{os.environ['PGVECTOR_DB']}"
+)
 
-            # Apply evaluators
-            sim_score = semantic_similarity(answer, gold) if gold else None
-            em_score = exact_match(answer, gold) if gold else None
+print(conn_str)
 
-            run.log_metric("semantic_similarity", sim_score)
-            run.log_metric("exact_match", em_score)
+vectorstore = PGVector(
+    embeddings=OpenAIEmbeddings(model='text-embedding-3-small'),
+    collection_name="art_of_war_book_english",
+    connection=conn_str,
+)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
 
-            results.append({
-                "question": question,
-                "gold_answer": gold,
-                "answer": answer,
-                "retrieved_chunks": retrieved_chunks,
-                "semantic_similarity": sim_score,
-                "exact_match": em_score
-            })
+llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
 
-            run.end()
 
-        except Exception as e:
-            run.end(error=str(e))
-            print(f"Error: {e}")
+@traceable()
+def rag_bot(question: str) -> dict:
+    # langchain Retriever will be automatically traced
+    docs = retriever.invoke(question)
+    
+    print('docs: ', docs)
+    docs_string = "".join(doc.page_content for doc in docs)
+    instructions = f"""You are a helpful assistant who is good at analyzing source information and answering questions.       Use the following source documents to answer the user's questions.       If you don't know the answer, just say that you don't know.       Use three sentences maximum and keep the answer concise.
 
-    # Save local copy
-    run_id = datetime.now().strftime('%Y-%m-%d_%H-%M')
-    os.makedirs("eval/results", exist_ok=True)
-    with open(f'eval/results/run_{run_id}.jsonl', 'w') as f:
-        for r in results:
-            f.write(json.dumps(r, ensure_ascii=False) + '\n')
+Documents:
+{docs_string}"""
+    # langchain ChatModel will be automatically traced
+    ai_msg = llm.invoke(
+        [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": question},
+        ],
+    )
 
-    print(f"✅ Saved {len(results)} results to eval/results/run_{run_id}.jsonl")
+    return {"answer": ai_msg.content, "documents": docs}
 
-if __name__ == "__main__":
-    run_eval()
+def target(inputs):
+    return rag_bot(inputs["question"])
+
+
+with open("eval/batch_config.yaml") as f:
+    batch_config = yaml.safe_load(f)
+
+commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+batch_config["git_sha"] = commit_sha
+
+experiment_results = langsmith_client.evaluate(
+    target,
+    data=DATASET_NAME,
+    evaluators=[correctness, groundedness, relevance, retrieval_relevance],
+    experiment_prefix=f"rag-{batch_config['version']}",
+    metadata=batch_config
+)
+
+with open('eval/data/results.jsonl', 'w') as f:
+    for result in experiment_results:
+        json.dump(result, f)
+        f.wirte('\n')
+
+

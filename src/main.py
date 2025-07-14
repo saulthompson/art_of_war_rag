@@ -1,8 +1,8 @@
 import os
 import json
-from setup_db import DB_setup_helper
-from embeddings_generator import Generator
-from chunker import Chunker
+from src.setup_db import DB_setup_helper
+from src.embeddings_generator import Generator
+from src.chunker import Chunker
 
 db_setup_helper = DB_setup_helper()
 db_setup_helper.create_table()

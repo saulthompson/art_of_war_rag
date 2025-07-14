@@ -1,4 +1,4 @@
-from db_pool import db_pool
+from src.db_pool import db_pool
 
 class DB_setup_helper:
     def __init__(self):

@@ -1,40 +1,52 @@
 import psycopg2
 import psycopg2.extras
-from db_pool import db_pool
+from src.db_pool import db_pool
 
 class Retriever:
     def find_similar(self, embedding, limit=5):
-        conn = db_pool.getconn()
-        query = """
-            SELECT 
-                id,
-                chunk,
-                chapter,
-                1 - (embedding <=> %s::vector) AS similarity
-            FROM art_of_war_book_english
-            ORDER BY similarity DESC
-            LIMIT %s;
-        """
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(query, (embedding, limit))
-            return cur.fetchall()
+        try:
+            conn = db_pool.getconn()
+            query = """
+                SELECT 
+                    id,
+                    chunk,
+                    chapter,
+                    1 - (embedding <=> %s::vector) AS similarity
+                FROM art_of_war_book_english
+                ORDER BY similarity DESC
+                LIMIT %s;
+            """
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(query, (embedding, limit))
+                return cur.fetchall()
 
+        except Exception as e:
+            print('Error while retrieving similar chunks', e)
+        
+        finally:
+            conn.close()
 
     def find_similar_above_threshold(self, embedding, threshold = 0.5, limit = 5):
-        query = """
-            SELECT 
-                id,
-                activity,
-                1 - (embedding <=> %s::vector) AS similarity
-            FROM travel_activity
-            WHERE (1 - (embedding <=> %s::vector)) >= %s
-            ORDER BY similarity DESC
-            LIMIT %s;
-        """
-        with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(query, (embedding, embedding, threshold, limit))
-            return cur.fetchall()
-
+        try:   
+            query = """
+                SELECT 
+                    id,
+                    activity,
+                    1 - (embedding <=> %s::vector) AS similarity
+                FROM travel_activity
+                WHERE (1 - (embedding <=> %s::vector)) >= %s
+                ORDER BY similarity DESC
+                LIMIT %s;
+            """
+            with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(query, (embedding, embedding, threshold, limit))
+                return cur.fetchall()
+        
+        except Exception as e:
+            print('Error while retrieving chunks above threshold ', threshold, e)
+        
+        finally:
+            conn.close()
 
     def find_most_average(self, limit=5):
         """

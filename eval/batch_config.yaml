@@ -1,0 +1,6 @@
+batch_name: retriever-vs-embedding-baseline
+version: v1.2
+embedding_model: text-embedding-3-small
+llm_model: gpt-4o
+retriever_k: 6
+date: 2025-07-10
