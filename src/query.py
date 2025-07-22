@@ -1,6 +1,7 @@
 import os
 from src.retriever import Retriever
 from src.embeddings_generator import Generator
+from src.spacy_helper import SpacyHelper
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -9,6 +10,7 @@ load_dotenv()
 class QueryMachine:
     def __init__(self, model='gpt-4.1'):
       self.db_search = Retriever()
+      self.spacy_helper = SpacyHelper()
       self.embeddings_generator = Generator()
       self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
       self.MODEL = model
@@ -56,6 +58,7 @@ class QueryMachine:
           else:
             query = input('Please enter a question about the Art of War:\n')
 
+          query_entities = self.spacy_helper.extract_entities(query)
           query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
 
@@ -68,6 +71,11 @@ class QueryMachine:
 
 # query_machine = QueryMachine()
 # print(query_machine.enter_query())
+
+# 1. parse query with NER
+# 2. construct CYPHER query
+# 3. query neo4j db
+# 4. rerank context?
 
 # todo - clean up database connections in retriever.py / centralize all db logic
 # low frequency words
