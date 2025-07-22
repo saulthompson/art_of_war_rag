@@ -1,9 +1,8 @@
-# eval/pipeline.py
 import os
 import subprocess
 import yaml
 from dotenv import load_dotenv
-from langsmith import wrappers, traceable
+from langsmith import wrappers
 from langchain_postgres import PGVector
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from openai import OpenAI
@@ -27,31 +26,30 @@ def load_target():
     # Setup LLM
     llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
     
-@traceable()
-def rag_bot(question: str) -> dict:
-    docs = retriever.invoke(question)
-    docs_string = "".join(doc.page_content for doc in docs)
+    def rag_bot(question: str) -> dict:
+        docs = retriever.invoke(question)
+        docs_string = "".join(doc.page_content for doc in docs)
 
-    instructions = f"""You are a helpful assistant who is good at analyzing source information and answering questions.
-    Use the following source documents to answer the user's questions.
-    If you don't know the answer, just say that you don't know.
-    Use three sentences maximum and keep the answer concise.
+        instructions = f"""You are a helpful assistant who is good at analyzing source information and answering questions.
+        Use the following source documents to answer the user's questions.
+        If you don't know the answer, just say that you don't know.
+        Use three sentences maximum and keep the answer concise.
 
-    Documents:
-    {docs_string}"""
-    
-    ai_msg = llm.invoke(
-        [
-            {"role": "system", "content": instructions},
-            {"role": "user", "content": question},
-        ],
-    )
-    return {"answer": ai_msg.content, "documents": docs}
+        Documents:
+        {docs_string}"""
+        
+        ai_msg = llm.invoke(
+            [
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": question},
+            ],
+        )
+        return {"answer": ai_msg.content, "documents": docs}
 
-def target(inputs):
-    return rag_bot(inputs["question"])
+    def target(inputs):
+        return rag_bot(inputs["question"])
 
-return target
+    return target
 
 def load_batch_metadata():
     with open("eval/batch_config.yaml") as f:

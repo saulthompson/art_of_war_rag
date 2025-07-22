@@ -187,18 +187,3 @@ def retrieval_relevance(inputs: dict, outputs: dict) -> dict:
         {"role": "user", "content": content}
     ])
     return {"score": grade.relevant, "explanation": grade.explanation}
-
-
-# ------------------------------------------------------------------------------
-# Semantic Similarity Utility
-# ------------------------------------------------------------------------------
-
-def semantic_similarity(a: str, b: str) -> float | None:
-    """Compute cosine similarity between embeddings of two strings."""
-    try:
-        emb_a = client.embeddings.create(model=generator.embedding_model, input=a).data[0].embedding
-        emb_b = client.embeddings.create(model=generator.embedding_model, input=b).data[0].embedding
-        return np.dot(emb_a, emb_b) / (np.linalg.norm(emb_a) * np.linalg.norm(emb_b))
-    except Exception as e:
-        print("Error computing similarity:", e)
-        return None

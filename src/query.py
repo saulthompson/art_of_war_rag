@@ -48,10 +48,13 @@ class QueryMachine:
       except Exception as e:
         print('Error while getting answer:', e)
 
-    def enter_query(self):
+    def enter_query(self, website_input=None, history=None):
       try:
         while True:
-          query = input('Please enter a question about the Art of War:\n')
+          if website_input:
+            query = website_input
+          else:
+            query = input('Please enter a question about the Art of War:\n')
 
           query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)

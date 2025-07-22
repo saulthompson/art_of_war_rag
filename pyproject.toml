@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.14"
 psycopg2-binary = "2.9.10"
 python-dotenv = "1.1.0"
 numpy = "^2.3.1"
@@ -19,6 +19,10 @@ openevals = "^0.1.0"
 langchain-core = "^0.3.68"
 langchain-postgres = "^0.0.15"
 pydantic = "^2.11.7"
+spacy = "^3.8.7"
+neo4j = "^5.28.1"
+pandas = "^2.3.1"
+gradio = "^5.38.0"
 
 
 [tool.poetry.group.dev.dependencies]
