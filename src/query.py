@@ -2,6 +2,7 @@ import os
 from src.retriever import Retriever
 from src.embeddings_generator import Generator
 from src.spacy_helper import SpacyHelper
+from src.neo4j.scripts.retriever import GraphModel
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -12,6 +13,7 @@ class QueryMachine:
       self.db_search = Retriever()
       self.spacy_helper = SpacyHelper()
       self.embeddings_generator = Generator()
+      self.graph_db_retriever = GraphModel()
       self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
       self.MODEL = model
       self.prompt_template = """
@@ -58,9 +60,13 @@ class QueryMachine:
           else:
             query = input('Please enter a question about the Art of War:\n')
 
-          query_entities = self.spacy_helper.extract_entities(query)
+          graph_db_chunks = self.graph_db_retriever.run(query)
+
           query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
+
+          if graph_db_chunks:
+            retrieved_context = graph_db_chunks + retrieved_context
 
           print('retrieved context:', retrieved_context)
 
@@ -68,6 +74,10 @@ class QueryMachine:
 
       except Exception as e:
         print(f"error while prompting {self.MODEL}: {e}")
+
+machine = QueryMachine()
+
+print(machine.enter_query('what did Liu Bei have to do with Cao Cao?'))
 
 # query_machine = QueryMachine()
 # print(query_machine.enter_query())

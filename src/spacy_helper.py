@@ -8,7 +8,6 @@ class SpacyHelper:
         self.matcher = PhraseMatcher(self.nlp.vocab)
         self.find_patterns_in_document()
 
-
     def find_patterns_in_document(self):
         entities = []
 
@@ -32,26 +31,26 @@ class SpacyHelper:
             self.matcher.add(label, patterns) 
 
     
+    def filter_subspan_entities(self, entities):
+        entities = sorted(entities, key=lambda e: (e['end'] - e['start']), reverse=True)
+        filtered = []
+        for e in entities:
+            if not any(e['start'] >= f['start'] and e['end'] <= f['end'] for f in filtered):
+                filtered.append(e)
+        return filtered
+        
     def parse_user_query_for_entities(self, query):
         results = []
         doc = self.nlp(query)
         matches = self.matcher(doc)
+        match_spans = [{"match_id": match_id, "start": start, "end": end} for match_id, start, end in matches]
 
         print('matches:', matches)
-        filtered_matches = []
-
-        # filter out shorter, less specific matches in case of overlapping matches
-        for idx, (match_id, start, end) in enumerate(matches):
-            if idx < len(matches) - 1:
-                next_match = matches[idx + 1]
-                if next_match[1] == start and next_match[2] > end:
-                    continue
-            
-            filtered_matches.append((match_id, start, end))
-
-        for match_id, start, end in filtered_matches:
-            label = self.nlp.vocab.strings[match_id] 
-            span = doc[start:end]
+        filtered_spans = self.filter_subspan_entities(match_spans)
+        
+        for match in filtered_spans:
+            span = doc[match["start"]:match["end"]]
+            label = self.nlp.vocab.strings[match["match_id"]]
             print("Matched:", span.text, "Label:", label)
             results.append({"text": span.text, "label": label})
         
@@ -78,8 +77,3 @@ def is_date_question(query):
     lowered = query.lower()
     date_keywords = ['when', 'year', 'which century', 'date', 'time period']
     return any(kw in lowered for kw in date_keywords)
-
-helper = SpacyHelper()
-entities = []
-
-print(helper.parse_user_query_for_entities("what did Zhu Ran do?"))
