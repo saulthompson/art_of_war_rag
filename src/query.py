@@ -1,7 +1,7 @@
 import os
 from src.retriever import Retriever
 from src.embeddings_generator import Generator
-from src.spacy_helper import SpacyHelper
+from src.spacy_helper import get_spacy_helper
 from src.neo4j.scripts.retriever import GraphModel
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -11,7 +11,7 @@ load_dotenv()
 class QueryMachine:
     def __init__(self, model='gpt-4.1'):
       self.db_search = Retriever()
-      self.spacy_helper = SpacyHelper()
+      self.spacy_helper = get_spacy_helper()
       self.embeddings_generator = Generator()
       self.graph_db_retriever = GraphModel()
       self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -70,7 +70,7 @@ class QueryMachine:
 
           print('retrieved context:', retrieved_context)
 
-          return self.get_answer(query, retrieved_context)
+          return {"answer": self.get_answer(query, retrieved_context), "context": retrieved_context}
 
       except Exception as e:
         print(f"error while prompting {self.MODEL}: {e}")
@@ -82,10 +82,11 @@ print(machine.enter_query('what did Liu Bei have to do with Cao Cao?'))
 # query_machine = QueryMachine()
 # print(query_machine.enter_query())
 
-# 1. parse query with NER
-# 2. construct CYPHER query
-# 3. query neo4j db
-# 4. rerank context?
+# Todos
+# 1. migrate langsmith to langfuse
+# 2. run evals and track versions (against git?)
+# 3. handle query with multiple entities that aren't mentioned in the same chunk
+# . rerank context?
 
 # todo - clean up database connections in retriever.py / centralize all db logic
 # low frequency words

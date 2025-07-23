@@ -2,6 +2,15 @@ import spacy
 from spacy.matcher import PhraseMatcher
 import json
 
+
+_spacy_helper_instance = None
+
+def get_spacy_helper():
+    global _spacy_helper_instance
+    if _spacy_helper_instance is None:
+        _spacy_helper_instance = SpacyHelper()
+    return _spacy_helper_instance
+
 class SpacyHelper:
     def __init__(self, model="en_core_web_sm"):
         self.nlp = spacy.load(model)
