@@ -76,16 +76,22 @@ class QueryMachine:
         print(f"error while prompting {self.MODEL}: {e}")
 
 machine = QueryMachine()
+response = machine.enter_query('What does the book say about what happened at the Tao River in relation to Taizong?')
 
-print(machine.enter_query('what did Liu Bei have to do with Cao Cao?'))
+print(response["answer"], "context_count:", len(response["context"]))
 
 # query_machine = QueryMachine()
 # print(query_machine.enter_query())
 
 # Todos
-# 1. migrate langsmith to langfuse
-# 2. run evals and track versions (against git?)
-# 3. handle query with multiple entities that aren't mentioned in the same chunk
+# 1. roadmap of next steps:
+#    - handle multiple entities that don't occur in the same chunk (return 5 chunks for each, send to llm)
+#    - handle generic words in user queries - event/s, people/person, place, dynasty (return 15 nodes in order of most relations)
+#    - programatically create new relationships in graph
+
+# 2. Write new examples dataset, upload to langfuse, update langfuse evaluator
+# 3. implement next steps, creating langfuse evaluation for each one
+# 
 # . rerank context?
 
 # todo - clean up database connections in retriever.py / centralize all db logic
