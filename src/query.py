@@ -62,6 +62,8 @@ class QueryMachine:
 
           graph_db_chunks = self.graph_db_retriever.run(query)
 
+          print('graph db chunks:', graph_db_chunks)
+
           query_embedding = self.embeddings_generator.generate_single_embedding(query)
           retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
 
@@ -76,7 +78,7 @@ class QueryMachine:
         print(f"error while prompting {self.MODEL}: {e}")
 
 machine = QueryMachine()
-response = machine.enter_query('What does the book say about what happened at the Tao River in relation to Taizong?')
+response = machine.enter_query("What historical figures mentioned in Hua Shan's book best illustrate the clever use of terrain?")
 
 print(response["answer"], "context_count:", len(response["context"]))
 

@@ -2,13 +2,13 @@ import os
 import re
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
-from src.spacy_helper import SpacyHelper
+from src.spacy_helper import get_spacy_helper
 
 load_dotenv()
 
 class GraphModel:
   def __init__(self, max_chunks=25):
-    self.spacy_helper = SpacyHelper()
+    self.spacy_helper = get_spacy_helper()
     self.queries = []
     self.MAX_CHUNKS = max_chunks
     self.driver = GraphDatabase.driver(
@@ -17,12 +17,13 @@ class GraphModel:
     )
 
   def build_query(self, entities):
+    if not entities:
+      return 
     match_clauses = []
     where_clauses = []
     entity_vars = []
 
     for i, entity in enumerate(entities):
-        print('query builder entities:', entities)
         var = f"e{i}"
         entity_vars.append(var)
         match_clauses.append(f"MATCH ({var}:{entity["label"]} {{name: $name{i}}})-[:MENTIONED_IN]->(c:CHUNK)")
@@ -34,9 +35,37 @@ class GraphModel:
         params[f"label{i}"] = e["label"]
         
     self.queries.append((query, params))
+  
+  def build_generic_query(self, generics):
+    queries = []
+    for i, word in enumerate(generics):
+      var = f"e{i}"
+      if word in ["people", "person", "who", "historical figure"]:
+        label = 'PERSON'
+      elif word in ["event", "events", "battle"]:
+        label = 'EVENT'
+      elif word in ["dynasty", "when", "period"]:
+        label = 'DATE'
+      elif word in ["place", "location"]:
+        label = 'LOC'
 
+      queries.append((f"""
+        MATCH (e:{label})-[:MENTIONED_IN]->(c:CHUNK)
+        WITH e, c
+        ORDER BY e, rand()
+        WITH e, collect(c)[0] AS one_chunk 
+        RETURN one_chunk.content AS content
+        LIMIT 10
+        """, {}))
+      
+      self.queries.append(queries[-1])
+
+    return len(queries)
 
   def execute_newest_query(self):
+    if not self.queries:
+      return []
+
     [query, params] = self.queries[-1]
 
     try:
@@ -67,9 +96,15 @@ class GraphModel:
       return []
   
   def run(self, user_message):
-      named_entities = self.spacy_helper.parse_user_query_for_entities(user_message)
+      [named_entities, generics] = self.spacy_helper.parse_user_query_for_entities(user_message)
       self.build_query(named_entities)
       chunks = self.execute_newest_query()
+
+      if generics:
+        generic_query_count = self.build_generic_query(generics)
+        for i in range(generic_query_count):
+          chunks += self.execute_newest_query()
+
       if len(chunks) > self.MAX_CHUNKS:
         chunks = chunks[:self.MAX_CHUNKS]
       

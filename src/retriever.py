@@ -1,11 +1,20 @@
 import psycopg2
 import psycopg2.extras
 from src.db_pool import db_pool
+from contextlib import contextmanager
 
 class Retriever:
+    @contextmanager
+    def get_cursor(self):
+        conn = db_pool.getconn()
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                yield cur
+        finally:
+            conn.close()
+
     def find_similar(self, embedding, limit=5):
         try:
-            conn = db_pool.getconn()
             query = """
                 SELECT 
                     id,
@@ -16,15 +25,12 @@ class Retriever:
                 ORDER BY similarity DESC
                 LIMIT %s;
             """
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            with self.get_cursor() as cur:
                 cur.execute(query, (embedding, limit))
                 return cur.fetchall()
 
         except Exception as e:
             print('Error while retrieving similar chunks', e)
-        
-        finally:
-            conn.close()
 
     def find_similar_above_threshold(self, embedding, threshold = 0.5, limit = 5):
         try:   
@@ -38,15 +44,12 @@ class Retriever:
                 ORDER BY similarity DESC
                 LIMIT %s;
             """
-            with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            with self.get_cursor() as cur:
                 cur.execute(query, (embedding, embedding, threshold, limit))
                 return cur.fetchall()
         
         except Exception as e:
             print('Error while retrieving chunks above threshold ', threshold, e)
-        
-        finally:
-            conn.close()
 
     def find_most_average(self, limit=5):
         """
@@ -64,7 +67,7 @@ class Retriever:
             ORDER BY distance_to_center ASC
             LIMIT %s;
         """
-        with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        with self.get_cursor() as cur:
             cur.execute(query, (limit,))
             return cur.fetchall()
 
@@ -86,6 +89,6 @@ class Retriever:
             ORDER BY distance_from_center DESC
             LIMIT %s;
         """
-        with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        with self.get_cursor() as cur:
             cur.execute(query, (limit,))
             return cur.fetchall()

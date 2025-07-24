@@ -12,6 +12,8 @@ def get_spacy_helper():
     return _spacy_helper_instance
 
 class SpacyHelper:
+    GENERICS = ['event', 'people', 'person', 'who', 'when', 'period', 'place', 'location', 'battle', 'dynasty', 'historical figure']
+
     def __init__(self, model="en_core_web_sm"):
         self.nlp = spacy.load(model)
         self.matcher = PhraseMatcher(self.nlp.vocab)
@@ -54,7 +56,6 @@ class SpacyHelper:
         matches = self.matcher(doc)
         match_spans = [{"match_id": match_id, "start": start, "end": end} for match_id, start, end in matches]
 
-        print('matches:', matches)
         filtered_spans = self.filter_subspan_entities(match_spans)
         
         for match in filtered_spans:
@@ -63,7 +64,20 @@ class SpacyHelper:
             print("Matched:", span.text, "Label:", label)
             results.append({"text": span.text, "label": label})
         
+        results = [results, self.parse_user_query_for_generics(query)]
+
+        print('parser results', results)
+
         return results
+    
+    def parse_user_query_for_generics(self, query):
+        generic_matches = []
+
+        for word in SpacyHelper.GENERICS:
+            if word in query:
+                generic_matches.append(word)
+        
+        return generic_matches
 
     def extract_entities(self, text):
         """
