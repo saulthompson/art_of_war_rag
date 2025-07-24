@@ -1,5 +1,5 @@
 import os
-from src.retriever import Retriever
+from src.vector_retriever import Retriever
 from src.embeddings_generator import Generator
 from src.spacy_helper import get_spacy_helper
 from src.neo4j.scripts.retriever import GraphModel
@@ -38,49 +38,58 @@ class QueryMachine:
       question: {question}
       """
     
-    def get_answer(self, question, context):
+    def get_answer_stream(self, question, context):
       try:
         final_prompt = self.prompt_template.format(context=context, question=question)
-        response = self.openai_client.responses.create(
+        response_stream = self.openai_client.chat.completions.create(
             model=self.MODEL,
             temperature=0.7,
-            input=final_prompt,
-          )
+            messages=[{"role": "user", "content": final_prompt}],
+            stream=True,
+        )
 
-        return response.output_text
+        for event in response_stream:
+            if event.choices[0].delta.content:
+                yield event.choices[0].delta.content
       
       except Exception as e:
-        print('Error while getting answer:', e)
+        yield f"\n[Error while generating answer: {e}]"
 
     def enter_query(self, website_input=None, history=None):
       try:
-        while True:
-          if website_input:
-            query = website_input
-          else:
+        if website_input:
+          query = website_input
+        else:
+          while True:
             query = input('Please enter a question about the Art of War:\n')
+            if query:
+              break
 
-          graph_db_chunks = self.graph_db_retriever.run(query)
+        graph_db_chunks = self.graph_db_retriever.run(query)
 
-          print('graph db chunks:', graph_db_chunks)
+        query_embedding = self.embeddings_generator.generate_single_embedding(query)
+        retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
 
-          query_embedding = self.embeddings_generator.generate_single_embedding(query)
-          retrieved_context = self.db_search.find_similar(query_embedding, limit=6)
+        if graph_db_chunks:
+          retrieved_context = graph_db_chunks + retrieved_context
 
-          if graph_db_chunks:
-            retrieved_context = graph_db_chunks + retrieved_context
+        answer_so_far = ""
+        if history is None:
+            history = []
 
-          print('retrieved context:', retrieved_context)
+        updated_history = history + [{"role": "user", "content": query}]
 
-          return {"answer": self.get_answer(query, retrieved_context), "context": retrieved_context}
+        for token in self.get_answer_stream(query, retrieved_context):
+            answer_so_far += token
+            yield updated_history + [{"role": "assistant", "content": answer_so_far}]
 
       except Exception as e:
         print(f"error while prompting {self.MODEL}: {e}")
 
-machine = QueryMachine()
-response = machine.enter_query("What historical figures mentioned in Hua Shan's book best illustrate the clever use of terrain?")
+# machine = QueryMachine()
+# response = machine.enter_query("What historical figures mentioned in Hua Shan's book best illustrate the clever use of terrain?")
 
-print(response["answer"], "context_count:", len(response["context"]))
+# print(response["answer"], "context_count:", len(response["context"]))
 
 # query_machine = QueryMachine()
 # print(query_machine.enter_query())

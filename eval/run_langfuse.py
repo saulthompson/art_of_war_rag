@@ -11,7 +11,7 @@ for item in dataset.items:
     with item.run(
         run_name=f"run #3",
         run_description="added support for generic user questions involving people, places, events, and time periods e.g. 'what events illustrate the importance of terrain'",
-        run_metadata={f"version: 1.4", f"model: {llm.MODEL}"},
+        run_metadata={f"version: 1.4", f"model: {llm.MODEL}", "git_hash: d973055ac0c7fe0a0264805316bba43df8aa879a"},
     ) as root_span:
         response = observed_query(item.input)
         if response:

@@ -1,4 +1,22 @@
-from src.db_pool import db_pool
+import os
+import json
+from src.embeddings_generator import Generator
+from src.chunker import Chunker
+
+db_setup_helper = DB_setup_helper()
+db_setup_helper.create_table()
+
+# load chunks from file-system if they already exist, otherwise generate new chunks
+if os.path.exists('assets/chunks.json'):
+  with open('assets/chunks.json', 'r', encoding='utf-8') as f:
+    chunks = json.load(f)
+    print(f"✅ Loaded {len(chunks)} chunks from JSON file.")
+else:
+  with open('assets/art_of_war_for_rag.txt', encoding='iso-8859-1') as f:
+    raw_book = f.read()
+  chunker = Chunker(raw_book)
+  chunks = chunker.run()
+  print('created new chunks')
 
 class DB_setup_helper:
     def __init__(self):
@@ -55,4 +73,9 @@ class DB_setup_helper:
         finally:
             self.cur.close()
             self.conn.close()
+
+
+
+gen = Generator(chunks)
+db_setup_helper.insert_chunks_to_db(gen, batch_size=100)
 
