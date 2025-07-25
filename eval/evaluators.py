@@ -51,8 +51,8 @@ correctness_llm = ChatOpenAI(
 def correctness(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
     """Evaluate factual correctness against reference answer."""
     content = f"""QUESTION: {inputs['question']}
-GROUND TRUTH ANSWER: {reference_outputs['answer']}
-STUDENT ANSWER: {outputs['answer']}"""
+    GROUND TRUTH ANSWER: {reference_outputs['answer']}
+    STUDENT ANSWER: {outputs['answer']}"""
     grade = correctness_llm.invoke([
         {"role": "system", "content": correctness_instructions},
         {"role": "user", "content": content}

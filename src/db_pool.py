@@ -5,7 +5,7 @@ load_dotenv()
 
 db_pool = pool.SimpleConnectionPool(
     minconn=1,
-    maxconn=10,
+    maxconn=22,
     host="localhost",
     port=5432,
     user="postgres",

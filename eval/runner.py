@@ -11,17 +11,17 @@ def main():
     target = load_target()
     batch_metadata = load_batch_metadata()
 
-    existing = list(langsmith_client.list_datasets(dataset_name=DATASET_NAME))
+    existing = langsmith_client.list_datasets(dataset_name=DATASET_NAME)
     if existing:
-        dataset = existing[0]
+        dataset = list(existing)[0]
         print(f"✅ Using existing dataset: {dataset.name}")
     else:
         dataset = langsmith_client.create_dataset(dataset_name=DATASET_NAME)
         print(f"📦 Created new dataset: {dataset.id}")
 
-    with open('eval/data/queries.jsonl') as f:
-        queries = [json.loads(line) for line in f]
-        langsmith_client.create_examples(dataset_id=dataset.id, examples=queries)
+        with open('eval/data/queries.jsonl') as f:
+            queries = [json.loads(line) for line in f]
+            langsmith_client.create_examples(dataset_id=dataset.id, examples=queries)
 
     experiment_results = langsmith_client.evaluate(
         target,
