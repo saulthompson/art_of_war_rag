@@ -102,7 +102,6 @@ class SpacyHelper:
         for match in filtered_spans:
             span = doc[match["start"]:match["end"]]
             label = self.nlp.vocab.strings[match["match_id"]]
-            print("Matched:", span.text, "Label:", label)
             entity_results.append({"text": span.text, "label": label})
 
         generic_results = self.parse_user_query_for_generics(query)
