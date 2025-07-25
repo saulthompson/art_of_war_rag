@@ -1,11 +1,24 @@
 import psycopg2
 import psycopg2.extras
-from src.db_pool import db_pool
 from contextlib import contextmanager
+from typing import Generator, List, Optional, Dict, Any, Tuple
+from src.db_pool import db_pool
+
 
 class Retriever:
+    """
+    Provides methods for retrieving vector-based similarity search results
+    from PostgreSQL tables using pgvector.
+    """
+
     @contextmanager
-    def get_cursor(self):
+    def get_cursor(self) -> Generator[psycopg2.extras.RealDictCursor, None, None]:
+        """
+        Context manager that yields a dictionary-based PostgreSQL cursor.
+
+        Yields:
+            Generator[RealDictCursor, None, None]: A database cursor for executing queries.
+        """
         conn = db_pool.getconn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -13,7 +26,17 @@ class Retriever:
         finally:
             conn.close()
 
-    def find_similar(self, embedding, limit=5):
+    def find_similar(self, embedding: List[float], limit: int = 5) -> Optional[List[Dict[str, Any]]]:
+        """
+        Find the most similar text chunks in 'art_of_war_book_english' based on vector similarity.
+
+        Args:
+            embedding (List[float]): The query embedding vector.
+            limit (int): Maximum number of results to return.
+
+        Returns:
+            Optional[List[Dict[str, Any]]]: A list of matching rows with similarity scores.
+        """
         try:
             query = """
                 SELECT 
@@ -28,12 +51,28 @@ class Retriever:
             with self.get_cursor() as cur:
                 cur.execute(query, (embedding, limit))
                 return cur.fetchall()
-
         except Exception as e:
-            print('Error while retrieving similar chunks', e)
+            print('Error while retrieving similar chunks:', e)
+            return None
 
-    def find_similar_above_threshold(self, embedding, threshold = 0.5, limit = 5):
-        try:   
+    def find_similar_above_threshold(
+        self, 
+        embedding: List[float], 
+        threshold: float = 0.5, 
+        limit: int = 5
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Find activities in 'travel_activity' table with similarity above a given threshold.
+
+        Args:
+            embedding (List[float]): The query embedding vector.
+            threshold (float): Minimum similarity score to include.
+            limit (int): Maximum number of results to return.
+
+        Returns:
+            Optional[List[Dict[str, Any]]]: A list of activities meeting the threshold.
+        """
+        try:
             query = """
                 SELECT 
                     id,
@@ -47,13 +86,19 @@ class Retriever:
             with self.get_cursor() as cur:
                 cur.execute(query, (embedding, embedding, threshold, limit))
                 return cur.fetchall()
-        
         except Exception as e:
-            print('Error while retrieving chunks above threshold ', threshold, e)
+            print(f'Error while retrieving chunks above threshold {threshold}:', e)
+            return None
 
-    def find_most_average(self, limit=5):
+    def find_most_average(self, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Find the activity whose embedding is closest to the average embedding (centroid).
+        Find the top `limit` activities whose embeddings are closest to the average vector (centroid).
+
+        Args:
+            limit (int): Number of most average activities to return.
+
+        Returns:
+            List[Dict[str, Any]]: A list of the most average activities.
         """
         query = """
             WITH centroid AS (
@@ -71,11 +116,15 @@ class Retriever:
             cur.execute(query, (limit,))
             return cur.fetchall()
 
-
-    def find_outliers(self, limit=5):
+    def find_outliers(self, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Find the top `limit` activities whose embeddings are furthest from the average embedding (centroid).
-        These are semantic outliers.
+        Find the top `limit` activities whose embeddings are furthest from the average (semantic outliers).
+
+        Args:
+            limit (int): Number of most distant outliers to return.
+
+        Returns:
+            List[Dict[str, Any]]: A list of the most semantically distant activities.
         """
         query = """
             WITH centroid AS (
